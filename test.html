@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin-bottom: 20px; padding: 20px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 5px 10px; }
+        pre { background: #f4f4f4; padding: 10px; }
+        .form-group { margin: 10px 0; }
+        label { display: inline-block; width: 120px; }
+    </style>
+</head>
+<body>
+    <h1>API Test Page</h1>
+
+    <div class="section">
+        <h2>1. User Registration</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="register()">Register</button>
+        <pre id="registerResult"></pre>
+    </div>
+
+    <div class="section">
+        <h2>2. User Login</h2>
+        <input type="text" id="loginUsername" placeholder="Username">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <select id="role">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+        </select>
+        <button onclick="login()">Login</button>
+        <pre id="loginResult"></pre>
+    </div>
+
+    <div class="section">
+        <h2>3. Create New Event</h2>
+        <div class="form-group">
+            <label>Artist:</label>
+            <select id="artistSelect"></select>
+        </div>
+        <div class="form-group">
+            <label>Venue:</label>
+            <select id="venueSelect"></select>
+        </div>
+        <div class="form-group">
+            <label>Event Type:</label>
+            <select id="eventTypeSelect"></select>
+        </div>
+        <div class="form-group">
+            <label>Ticket Type:</label>
+            <select id="ticketTypeSelect"></select>
+        </div>
+        <div class="form-group">
+            <label>Price:</label>
+            <input type="number" id="price" min="0">
+        </div>
+        <div class="form-group">
+            <label>Total Tickets:</label>
+            <input type="number" id="totalTickets" min="0">
+        </div>
+        <div class="form-group">
+            <label>Event Date:</label>
+            <input type="date" id="eventDate">
+            <button onclick="addDate()">Add Date</button>
+        </div>
+        <div id="selectedDates"></div>
+        <button onclick="createEvent()">Create Event</button>
+        <pre id="createEventResult"></pre>
+    </div>
+
+    <div class="section">
+        <h2>4. View Database State</h2>
+        <button onclick="getEvents()">Get All Events</button>
+        <pre id="eventsResult"></pre>
+        
+        <button onclick="getArtists()">Get All Artists</button>
+        <pre id="artistsResult"></pre>
+        
+        <button onclick="getVenues()">Get All Venues</button>
+        <pre id="venuesResult"></pre>
+    </div>
+
+    <script>
+        let selectedDates = new Set();
+
+        // Load dropdowns when page loads
+        window.onload = async function() {
+            await loadArtists();
+            await loadVenues();
+            await loadEventTypes();
+            await loadTicketTypes();
+        };
+
+        async function loadArtists() {
+            try {
+                const response = await fetch('http://localhost:3000/artists');
+                const artists = await response.json();
+                const select = document.getElementById('artistSelect');
+                select.innerHTML = '<option value="">Select Artist</option>';
+                artists.forEach(artist => {
+                    select.innerHTML += `<option value="${artist.artist_id}">${artist.name}</option>`;
+                });
+            } catch (error) {
+                console.error('Error loading artists:', error);
+            }
+        }
+
+        async function loadVenues() {
+            try {
+                const response = await fetch('http://localhost:3000/venues');
+                const venues = await response.json();
+                const select = document.getElementById('venueSelect');
+                select.innerHTML = '<option value="">Select Venue</option>';
+                venues.forEach(venue => {
+                    select.innerHTML += `<option value="${venue.venue_id}">${venue.name}</option>`;
+                });
+            } catch (error) {
+                console.error('Error loading venues:', error);
+            }
+        }
+
+        async function loadEventTypes() {
+            try {
+                const response = await fetch('http://localhost:3000/event-types');
+                const types = await response.json();
+                const select = document.getElementById('eventTypeSelect');
+                select.innerHTML = '<option value="">Select Event Type</option>';
+                types.forEach(type => {
+                    select.innerHTML += `<option value="${type.event_type_id}">${type.name}</option>`;
+                });
+            } catch (error) {
+                console.error('Error loading event types:', error);
+            }
+        }
+
+        async function loadTicketTypes() {
+            try {
+                const response = await fetch('http://localhost:3000/ticket-types');
+                const types = await response.json();
+                const select = document.getElementById('ticketTypeSelect');
+                select.innerHTML = '<option value="">Select Ticket Type</option>';
+                types.forEach(type => {
+                    select.innerHTML += `<option value="${type.ticket_type_id}">${type.name}</option>`;
+                });
+            } catch (error) {
+                console.error('Error loading ticket types:', error);
+            }
+        }
+
+        function addDate() {
+            const dateInput = document.getElementById('eventDate');
+            const date = dateInput.value;
+            if (!date) return;
+            
+            selectedDates.add(date);
+            updateSelectedDates();
+            dateInput.value = '';
+        }
+
+        function updateSelectedDates() {
+            const container = document.getElementById('selectedDates');
+            container.innerHTML = Array.from(selectedDates).map(date => 
+                `<div>${date} <button onclick="removeDate('${date}')">Remove</button></div>`
+            ).join('');
+        }
+
+        function removeDate(date) {
+            selectedDates.delete(date);
+            updateSelectedDates();
+        }
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                const response = await fetch('http://localhost:3000/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                document.getElementById('registerResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('registerResult').textContent = error.message;
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const role = document.getElementById('role').value;
+            try {
+                const response = await fetch('http://localhost:3000/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role })
+                });
+                const data = await response.json();
+                document.getElementById('loginResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('loginResult').textContent = error.message;
+            }
+        }
+
+        async function createEvent() {
+            const event = {
+                artist_id: document.getElementById('artistSelect').value,
+                venue_id: document.getElementById('venueSelect').value,
+                event_type_id: document.getElementById('eventTypeSelect').value,
+                ticket_type_id: document.getElementById('ticketTypeSelect').value,
+                price: document.getElementById('price').value,
+                total_tickets: document.getElementById('totalTickets').value,
+                event_dates: Array.from(selectedDates)
+            };
+
+            try {
+                const response = await fetch('http://localhost:3000/add-event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(event)
+                });
+                const data = await response.json();
+                document.getElementById('createEventResult').textContent = JSON.stringify(data, null, 2);
+                if (response.ok) {
+                    // Clear form and refresh events list
+                    selectedDates.clear();
+                    updateSelectedDates();
+                    document.getElementById('price').value = '';
+                    document.getElementById('totalTickets').value = '';
+                    getEvents();
+                }
+            } catch (error) {
+                document.getElementById('createEventResult').textContent = error.message;
+            }
+        }
+
+        async function getEvents() {
+            try {
+                const response = await fetch('http://localhost:3000/events/all');
+                const data = await response.json();
+                document.getElementById('eventsResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('eventsResult').textContent = error.message;
+            }
+        }
+
+        async function getArtists() {
+            try {
+                const response = await fetch('http://localhost:3000/artists');
+                const data = await response.json();
+                document.getElementById('artistsResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('artistsResult').textContent = error.message;
+            }
+        }
+
+        async function getVenues() {
+            try {
+                const response = await fetch('http://localhost:3000/venues');
+                const data = await response.json();
+                document.getElementById('venuesResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('venuesResult').textContent = error.message;
+            }
+        }
+    </script>
+</body>
+</html> 
