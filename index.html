@@ -63,16 +63,17 @@
       style="background-image: url('https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80');">
       <h2 class="text-2xl font-semibold text-blue-200">Admin Panel</h2>
       <div class="grid grid-cols-2 gap-4 bg-white bg-opacity-20 p-6 rounded shadow">
-        <input type="text" id="artist" placeholder="Artist Name" class="p-2 border rounded bg-white bg-opacity-70">
+        <input type="text" id="artist" placeholder="Artist Name" class="p-2 border rounded bg-white bg-opacity-70" list="artistList">
+        <datalist id="artistList"></datalist>
         <input type="text" id="venue" placeholder="Venue" class="p-2 border rounded bg-white bg-opacity-70">
         <input type="text" id="eventType" placeholder="Event Type (Music, Dance...)" class="p-2 border rounded bg-white bg-opacity-70">
         <select id="ticketType" class="p-2 border rounded bg-white bg-opacity-70">
-          <option disabled selected>Ticket Type</option>
+          <option disabled selected>Select Ticket Type</option>
           <option value="Premium">Premium</option>
           <option value="Gold">Gold</option>
           <option value="Standing">Standing</option>
         </select>
-        <input type="number" id="ticketPrice" placeholder="Ticket Price" class="p-2 border rounded bg-white bg-opacity-70" min="0">
+        <input type="number" id="ticketPrice" placeholder="Ticket Price (₹)" class="p-2 border rounded bg-white bg-opacity-70" min="0">
         <input type="number" id="numTickets" placeholder="Number of Tickets" class="p-2 border rounded bg-white bg-opacity-70" min="0">
         <div class="col-span-2">
           <label class="block text-white mb-2">Event Dates (Select multiple):</label>
@@ -106,7 +107,7 @@
       style="background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80');">
       <h2 class="text-2xl font-semibold text-green-200">User Booking</h2>
       <div class="grid grid-cols-2 gap-4 bg-white bg-opacity-20 p-6 rounded shadow">
-         <select id="userEventType" class="p-2 border rounded bg-white bg-opacity-70">
+         <select id="userEventType" class="p-2 border rounded bg-white bg-opacity-70" onchange="handleEventTypeChange()">
              <option disabled selected>Select Event type</option>
         </select>
         <select id="userArtist" class="p-2 border rounded bg-white bg-opacity-70" onchange="populateOptions()">
@@ -121,7 +122,10 @@
         <select id="userTicketType" class="p-2 border rounded bg-white bg-opacity-70" onchange="updatePrice()">
           <option disabled selected>Select Ticket Type</option>
         </select>
-        <input type="text" id="userPrice" placeholder="Ticket Price" readonly class="p-2 border rounded bg-gray-100 bg-opacity-90">
+        <div class="p-2 border rounded bg-white bg-opacity-70 flex items-center">
+          <span class="text-gray-700 mr-2">Price:</span>
+          <span id="userPrice" class="font-semibold">₹0</span>
+        </div>
       </div>
 
       <h3 class="text-xl font-semibold mt-6 text-green-200">💳 Payment Details</h3>
@@ -133,18 +137,21 @@
           <option>Debit Card</option>
           <option>Net Banking</option>
         </select>
-        <input type="text" id="paymentID" placeholder="Payment ID" class="p-2 border rounded bg-white bg-opacity-70">
+        <input type="text" id="paymentID" placeholder="Payment ID" class="p-2 border rounded bg-white bg-opacity-70" readonly>
       </div>
       <button onclick="confirmBooking()" class="mt-4 px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700">Confirm Booking</button>
 
       <div class="border-t border-white mt-8 pt-8">
         <h2 class="text-2xl font-semibold text-purple-200">🛍 Optional: Purchase Merchandise</h2>
         <div class="grid grid-cols-2 gap-4 bg-white bg-opacity-20 p-6 rounded shadow mt-4">
-          <select id="userMerch" class="p-2 border rounded bg-white bg-opacity-70" onchange="updateMerchPrice()">
+          <select id="userMerch" class="p-2 border rounded bg-white bg-opacity-70">
             <option disabled selected>Select Merchandise</option>
           </select>
-          <input type="number" id="merchQty" placeholder="Quantity" class="p-2 border rounded bg-white bg-opacity-70" oninput="updateMerchPrice()" min="1">
-          <input type="text" id="merchTotal" placeholder="Total Price" readonly class="p-2 border rounded bg-gray-100 bg-opacity-90">
+          <input type="number" id="merchQty" placeholder="Quantity" class="p-2 border rounded bg-white bg-opacity-70" min="1" value="1">
+          <div class="p-2 border rounded bg-white bg-opacity-70 flex items-center">
+            <span class="text-gray-700 mr-2">Total Price:</span>
+            <span id="merchTotal" class="font-semibold">₹0</span>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-4 bg-white bg-opacity-20 p-6 rounded shadow mt-2">
           <select id="merchPaymentMethod" class="p-2 border rounded bg-white bg-opacity-70">
@@ -154,7 +161,7 @@
             <option>Debit Card</option>
             <option>Net Banking</option>
           </select>
-          <input type="text" id="merchPaymentID" placeholder="Payment ID" class="p-2 border rounded bg-white bg-opacity-70">
+          <input type="text" id="merchPaymentID" placeholder="Payment ID" class="p-2 border rounded bg-white bg-opacity-70" readonly>
         </div>
         <button onclick="confirmMerch()" class="mt-2 px-6 py-2 bg-purple-700 text-white rounded hover:bg-purple-800">Buy Merchandise</button>
       </div>
@@ -165,519 +172,8 @@
     </div>
   </div>
 
-  <script>
-    let role = "";
-    let users = {}; // {username: {password, role}}
-    const ADMIN_SECRET = "hi"; // Change this to your desired secret key
-    let events = [];
-    let merchList = [];
-    let selectedDates = new Set();
-    const API_URL = 'http://localhost:5000/api'; // Backend API URL
-
-    // Set minimum date for date inputs
-    function setMinDate() {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      const minDate = `${yyyy}-${mm}-${dd}`;
-      document.getElementById("eventDates").min = minDate;
-    }
-
-    // Load events and merchandise on page load
-    async function loadData() {
-        try {
-            const [eventsResponse, merchResponse] = await Promise.all([
-                fetch(`${API_URL}/events`),
-                fetch(`${API_URL}/merchandise`)
-            ]);
-            events = await eventsResponse.json();
-            merchList = await merchResponse.json();
-            populateArtistDropdowns();
-            populateMerchDropdown();
-        } catch (error) {
-            console.error('Error loading data:', error);
-        }
-    }
-
-    // Call loadData when page loads
-    window.onload = async function() {
-        setMinDate();
-        await loadData();
-    };
-
-    function selectRole(r) {
-      role = r;
-      document.getElementById("loginError").classList.add("hidden");
-      document.getElementById("loginForm").classList.remove("hidden");
-      if (role === "admin") {
-        // Show secret key input, hide username/password and register button
-        document.getElementById("adminSecret").classList.remove("hidden");
-        document.getElementById("username").classList.add("hidden");
-        document.getElementById("password").classList.add("hidden");
-        document.getElementById("registerBtn").classList.add("hidden");
-      } else if (role === "user") {
-        // Show username/password and register button, hide secret key
-        document.getElementById("adminSecret").classList.add("hidden");
-        document.getElementById("username").classList.remove("hidden");
-        document.getElementById("password").classList.remove("hidden");
-        document.getElementById("registerBtn").classList.remove("hidden");
-      }
-    }
-
-    async function register() {
-        if (role !== "user") return alert("Only users can register.");
-        let username = document.getElementById("username").value.trim();
-        let password = document.getElementById("password").value;
-        if (!username || !password) {
-            alert("Username and password are required.");
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_URL}/users/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password, role: 'user' })
-            });
-
-            if (response.ok) {
-                alert("User registered! Please login.");
-                document.getElementById("username").value = "";
-                document.getElementById("password").value = "";
-            } else {
-                const data = await response.json();
-                alert(data.message || "Registration failed.");
-            }
-        } catch (error) {
-            console.error('Registration error:', error);
-            alert("Registration failed. Please try again.");
-        }
-    }
-
-    async function login() {
-        if (role === "admin") {
-            let secret = document.getElementById("adminSecret").value;
-            if (secret === ADMIN_SECRET) {
-                document.getElementById("login").classList.add("hidden");
-                document.getElementById("admin").classList.remove("hidden");
-                await loadData();
-            } else {
-                showLoginError();
-            }
-        } else if (role === "user") {
-            let username = document.getElementById("username").value.trim();
-            let password = document.getElementById("password").value;
-
-            try {
-                const response = await fetch(`${API_URL}/users/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    document.getElementById("login").classList.add("hidden");
-                    document.getElementById("user").classList.remove("hidden");
-                    await loadData();
-                } else {
-                    showLoginError();
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                showLoginError();
-            }
-        } else {
-            alert("Please select Admin or User first.");
-        }
-    }
-
-    function showLoginError() {
-      const errorEl = document.getElementById("loginError");
-      errorEl.classList.remove("hidden");
-      setTimeout(() => errorEl.classList.add("hidden"), 3000);
-    }
-
-    function logout(userRole) {
-      // Reset all forms
-      if (userRole === 'admin') {
-        document.getElementById("admin").classList.add("hidden");
-        clearEventInputs();
-        clearMerchInputs();
-      } else {
-        document.getElementById("user").classList.add("hidden");
-      }
-      // Show login page
-      document.getElementById("login").classList.remove("hidden");
-      // Clear credentials
-      document.getElementById("username").value = "";
-      document.getElementById("password").value = "";
-      document.getElementById("adminSecret").value = "";
-      role = "";
-    }
-
-    function addDate() {
-      const dateInput = document.getElementById("eventDates");
-      const date = dateInput.value;
-      
-      if (!date) {
-        alert("Please select a date");
-        return;
-      }
-
-      // Check if date is in the past
-      const selectedDate = new Date(date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time part for accurate date comparison
-
-      if (selectedDate < today) {
-        alert("Cannot select past dates");
-        return;
-      }
-
-      // Add date to set
-      selectedDates.add(date);
-      
-      // Update display
-      updateSelectedDatesDisplay();
-      
-      // Clear input
-      dateInput.value = "";
-    }
-
-    function updateSelectedDatesDisplay() {
-      const container = document.getElementById("selectedDates");
-      container.innerHTML = "";
-      
-      selectedDates.forEach(date => {
-        const dateSpan = document.createElement("span");
-        dateSpan.className = "inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded";
-        dateSpan.textContent = date;
-        
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "ml-1 text-red-600 hover:text-red-800";
-        deleteBtn.textContent = "×";
-        deleteBtn.onclick = () => {
-          selectedDates.delete(date);
-          updateSelectedDatesDisplay();
-        };
-        
-        dateSpan.appendChild(deleteBtn);
-        container.appendChild(dateSpan);
-      });
-    }
-
-    async function addEvent() {
-        let artist = document.getElementById("artist").value.trim();
-        let venue = document.getElementById("venue").value.trim();
-        let eventType = document.getElementById("eventType").value.trim();
-        let ticketType = document.getElementById("ticketType").value;
-        let ticketPrice = parseFloat(document.getElementById("ticketPrice").value);
-        let numTickets = parseInt(document.getElementById("numTickets").value);
-
-        if (!artist || !venue || !eventType || !ticketType || isNaN(ticketPrice) || isNaN(numTickets) || selectedDates.size === 0) {
-            alert("Please fill all event details and add at least one date.");
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_URL}/events`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    artist,
-                    venue,
-                    eventType,
-                    ticketType,
-                    ticketPrice,
-                    numTickets,
-                    dates: Array.from(selectedDates)
-                })
-            });
-
-            if (response.ok) {
-                alert("Event added successfully!");
-                clearEventInputs();
-                selectedDates.clear();
-                updateSelectedDatesDisplay();
-                await loadData();
-            } else {
-                const data = await response.json();
-                alert(data.message || "Failed to add event.");
-            }
-        } catch (error) {
-            console.error('Error adding event:', error);
-            alert("Failed to add event. Please try again.");
-        }
-    }
-
-    function clearEventInputs() {
-      document.getElementById("artist").value = "";
-      document.getElementById("venue").value = "";
-      document.getElementById("eventType").value = "";
-      document.getElementById("ticketType").value = "";
-      document.getElementById("ticketPrice").value = "";
-      document.getElementById("numTickets").value = "";
-      document.getElementById("eventDates").value = "";
-      selectedDates.clear();
-      updateSelectedDatesDisplay();
-    }
-
-    function clearMerchInputs() {
-      document.getElementById("merchName").value = "";
-      document.getElementById("merchPrice").value = "";
-      document.getElementById("merchStock").value = "";
-      document.getElementById("merchArtist").value = "";
-    }
-
-    async function addMerch() {
-        let name = document.getElementById("merchName").value.trim();
-        let price = parseFloat(document.getElementById("merchPrice").value);
-        let stock = parseInt(document.getElementById("merchStock").value);
-        let artist = document.getElementById("merchArtist").value;
-
-        if (!name || isNaN(price) || isNaN(stock) || !artist) {
-            alert("Please fill all merchandise details correctly.");
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_URL}/merchandise`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ name, price, stock, artist })
-            });
-
-            if (response.ok) {
-                alert("Merchandise added successfully!");
-                clearMerchInputs();
-                await loadData();
-            } else {
-                const data = await response.json();
-                alert(data.message || "Failed to add merchandise.");
-            }
-        } catch (error) {
-            console.error('Error adding merchandise:', error);
-            alert("Failed to add merchandise. Please try again.");
-        }
-    }
-
-    function populateArtistDropdowns() {
-      const artistSet = new Set(events.map(e => e.artist));
-      const merchArtistSelect = document.getElementById("merchArtist");
-      const userArtistSelect = document.getElementById("userArtist");
-
-      // Clear existing options except placeholder
-      [merchArtistSelect, userArtistSelect].forEach(select => {
-        select.innerHTML = '<option disabled selected>Select Artist</option>';
-      });
-
-      artistSet.forEach(artist => {
-        const option1 = document.createElement("option");
-        option1.textContent = artist;
-        option1.value = artist;
-        merchArtistSelect.appendChild(option1);
-
-        const option2 = document.createElement("option");
-        option2.textContent = artist;
-        option2.value = artist;
-        userArtistSelect.appendChild(option2);
-      });
-
-      populateMerchDropdown();
-    }
-
-    function populateMerchDropdown() {
-      const merchSelect = document.getElementById("userMerch");
-      merchSelect.innerHTML = '<option disabled selected>Select Merchandise</option>';
-      merchList.forEach((m, i) => {
-        const option = document.createElement("option");
-        option.value = i;
-        option.textContent = `${m.name} - ${m.artist} - RS${m.price} (Stock: ${m.stock})`;
-        merchSelect.appendChild(option);
-      });
-    }
-
-    // When user selects artist, populate venue, eventType, ticketType, and dates selects accordingly
-    function populateOptions() {
-      const artist = document.getElementById("userArtist").value;
-      const venues = new Set();
-      const eventTypes = new Set();
-      const ticketTypes = new Set();
-      const dates = new Set();
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time part for accurate date comparison
-
-      events.forEach(e => {
-        if (e.artist === artist) {
-          venues.add(e.venue);
-          eventTypes.add(e.eventType);
-          ticketTypes.add(e.ticketType);
-          // Only add future dates
-          e.dates.forEach(date => {
-            const eventDate = new Date(date);
-            if (eventDate >= today) {
-              dates.add(date);
-            }
-          });
-        }
-      });
-
-      const venueSelect = document.getElementById("userVenue");
-      const eventTypeSelect = document.getElementById("userEventType");
-      const ticketTypeSelect = document.getElementById("userTicketType");
-      const dateSelect = document.getElementById("userEventDate");
-
-      fillSelect(venueSelect, venues, "Select Venue");
-      fillSelect(eventTypeSelect, eventTypes, "Select Event Type");
-      fillSelect(ticketTypeSelect, ticketTypes, "Select Ticket Type");
-      fillSelect(dateSelect, dates, "Select Date");
-      document.getElementById("userPrice").value = "";
-
-      // Add onchange handlers to update price
-      venueSelect.onchange = updatePrice;
-      eventTypeSelect.onchange = updatePrice;
-      ticketTypeSelect.onchange = updatePrice;
-      dateSelect.onchange = updatePrice;
-    }
-
-    function fillSelect(selectElement, itemsSet, placeholder) {
-      selectElement.innerHTML = `<option disabled selected>${placeholder}</option>`;
-      itemsSet.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item;
-        option.textContent = item;
-        selectElement.appendChild(option);
-      });
-    }
-
-    // When user selects ticket type, update price field
-    function updatePrice() {
-      const artist = document.getElementById("userArtist").value;
-      const venue = document.getElementById("userVenue").value;
-      const eventType = document.getElementById("userEventType").value;
-      const ticketType = document.getElementById("userTicketType").value;
-      const dateSelect = document.getElementById("userEventDate").value;
-
-      if (!artist || !venue || !eventType || !ticketType || !dateSelect) {
-        document.getElementById("userPrice").value = "";
-        return;
-      }
-
-      let price = "";
-      for (let e of events) {
-        if (e.artist === artist && e.venue === venue && e.eventType === eventType && e.ticketType === ticketType && e.dates.includes(dateSelect)) {
-          price = e.ticketPrice;
-          break;
-        }
-      }
-      document.getElementById("userPrice").value = price ? "RS" + price.toFixed(2) : "";
-    }
-
-    // Confirm event booking
-    function confirmBooking() {
-      const artist = document.getElementById("userArtist").value;
-      const venue = document.getElementById("userVenue").value;
-      const eventType = document.getElementById("userEventType").value;
-      const ticketType = document.getElementById("userTicketType").value;
-      const price = document.getElementById("userPrice").value;
-      const paymentMethod = document.getElementById("paymentMethod").value;
-      const paymentID = document.getElementById("paymentID").value.trim();
-
-      if (!artist || !venue || !eventType || !ticketType || !price || !paymentMethod || !paymentID) {
-        alert("Please complete all booking and payment details.");
-        return;
-      }
-
-      alert(`Booking confirmed for ${artist} at ${venue}, ${eventType}, ${ticketType} ticket.\nAmount paid: ${price}\nPayment Method: ${paymentMethod}\nPayment ID: ${paymentID}`);
-
-      // Clear user booking form
-      document.getElementById("userArtist").value = "";
-      document.getElementById("userVenue").innerHTML = "";
-      document.getElementById("userEventType").innerHTML = "";
-      document.getElementById("userTicketType").innerHTML = "";
-      document.getElementById("userPrice").value = "";
-      document.getElementById("paymentMethod").value = "";
-      document.getElementById("paymentID").value = "";
-    }
-
-    // Update merch total price based on quantity and selection
-    function updateMerchPrice() {
-      const merchSelect = document.getElementById("userMerch");
-      const qty = parseInt(document.getElementById("merchQty").value);
-      const merchTotal = document.getElementById("merchTotal");
-
-      const merchIndex = merchSelect.value;
-      if (merchIndex === null || merchIndex === "" || isNaN(qty) || qty <= 0) {
-        merchTotal.value = "";
-        return;
-      }
-      const merch = merchList[merchIndex];
-      if (qty > merch.stock) {
-        alert("Quantity exceeds available stock!");
-        merchTotal.value = "";
-        return;
-      }
-      merchTotal.value = "RS" + (merch.price * qty).toFixed(2);
-    }
-
-    // Confirm merch purchase
-    async function confirmMerch() {
-      const merchSelect = document.getElementById("userMerch");
-      const merchIndex = merchSelect.value;
-      const qty = parseInt(document.getElementById("merchQty").value);
-      const paymentMethod = document.getElementById("merchPaymentMethod").value;
-      const paymentID = document.getElementById("merchPaymentID").value.trim();
-
-      if (merchIndex === null || merchIndex === "" || isNaN(qty) || qty <= 0 || !paymentMethod || !paymentID) {
-        alert("Please complete all merchandise purchase details.");
-        return;
-      }
-
-      const merch = merchList[merchIndex];
-      if (qty > merch.stock) {
-        alert("Quantity exceeds available stock!");
-        return;
-      }
-
-      try {
-        const response = await fetch(`${API_URL}/merchandise/${merch._id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ stock: merch.stock - qty })
-        });
-
-        if (response.ok) {
-          alert(`Purchased ${qty} x ${merch.name} (${merch.artist})\nTotal: RS${(merch.price * qty).toFixed(2)}\nPayment Method: ${paymentMethod}\nPayment ID: ${paymentID}`);
-          
-          // Clear form and refresh data
-          merchSelect.value = "";
-          document.getElementById("merchQty").value = "";
-          document.getElementById("merchTotal").value = "";
-          document.getElementById("merchPaymentMethod").value = "";
-          document.getElementById("merchPaymentID").value = "";
-          await loadData();
-        } else {
-          const data = await response.json();
-          alert(data.message || "Purchase failed.");
-        }
-      } catch (error) {
-        console.error('Error processing purchase:', error);
-        alert("Purchase failed. Please try again.");
-      }
-    }
-  </script>
+  <!-- External JavaScript -->
+  <script src="script.js"></script>
 </body>
-</html>
+</html> 
+
